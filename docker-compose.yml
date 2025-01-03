@@ -1,0 +1,94 @@
+version: '3.9'
+
+services:
+  # Service untuk Nginx (Web Server)
+  webserver:
+    image: nginx:latest
+    container_name: webserver_docker
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "8000:80" # Akses Nginx di port 8000
+    volumes:
+      - ./src:/var/www # Direktori proyek Laravel
+      - ./nginx/conf.d:/etc/nginx/conf.d # Konfigurasi Nginx
+    depends_on:
+      - php
+      - node
+    networks:
+      - tus_mart-networks
+
+  # Service untuk PHP-FPM
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php_docker
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: php
+      SERVICE_TAG: dev
+    working_dir: /var/www
+    volumes:
+      - ./src:/var/www # Direktori proyek Laravel
+      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini # Konfigurasi PHP
+    networks:
+      - tus_mart-networks
+
+  # Service untuk Node.js (Vite)
+  node:
+    image: node:18
+    container_name: node_docker
+    restart: unless-stopped
+    tty: true
+    working_dir: /var/www
+    volumes:
+      - ./src:/var/www # Direktori proyek Laravel
+    ports:
+      - "5173:5173" # Akses Vite Dev Server di port 5173
+    command: ["npm", "run", "dev"] # Menjalankan Vite
+    networks:
+      - tus_mart-networks
+
+  # Service untuk MySQL
+  db:
+    image: mysql:8.0
+    container_name: db_inventory
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306" # Akses MySQL di port 3306
+    environment:
+      MYSQL_DATABASE: inventory
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - db:/var/lib/mysql # Penyimpanan data MySQL
+      - ./mysql/my.conf:/etc/mysql/my.conf # Konfigurasi MySQL
+      - ./mysql/init:/docker-entrypoint-initdb.d # Skrip inisialisasi (opsional)
+    networks:
+      - tus_mart-networks
+
+  # Service untuk phpMyAdmin
+  phpmyadmin:
+    depends_on:
+      - db
+    image: phpmyadmin:latest
+    container_name: phpmyadmin_docker
+    restart: unless-stopped
+    ports:
+      - "1002:80" # Akses phpMyAdmin di port 1002
+    environment:
+      PMA_HOST: db
+    networks:
+      - tus_mart-networks
+
+networks:
+  tus_mart-networks:
+    driver: bridge
+
+volumes:
+  db:
+    driver: local
